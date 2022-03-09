@@ -150,9 +150,10 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 	defer mb.mu.Unlock()
 
 	// Establish a new connection if not connected
-	if err = mb.connect(); err != nil {
+	//todo 默认认为是已经建立的连接，不考虑重新连接
+	/*if err = mb.connect(); err != nil {
 		return
-	}
+	}*/
 	// Set timer to close when idle
 	mb.lastActivity = time.Now()
 	mb.startCloseTimer()
@@ -172,6 +173,7 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 	// Read header first
 	var data [tcpMaxLength]byte
 	if _, err = io.ReadFull(mb.conn, data[:tcpHeaderSize]); err != nil {
+		//todo   这里判断如果是心跳的response，则略过
 		return
 	}
 	// Read length, ignore transaction & protocol id (4 bytes)
@@ -198,22 +200,15 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 
 // Connect establishes a new connection to the address in Address.
 // Connect and Close are exported so that multiple requests can be done with one session
-func (mb *tcpTransporter) Connect() error {
+func (mb *tcpTransporter) Connect(conn net.Conn) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
-	return mb.connect()
+	return mb.connect(conn)
 }
 
-func (mb *tcpTransporter) connect() error {
-	if mb.conn == nil {
-		dialer := net.Dialer{Timeout: mb.Timeout}
-		conn, err := dialer.Dial("tcp", mb.Address)
-		if err != nil {
-			return err
-		}
-		mb.conn = conn
-	}
+func (mb *tcpTransporter) connect(conn net.Conn) error {
+	mb.conn = conn
 	return nil
 }
 
